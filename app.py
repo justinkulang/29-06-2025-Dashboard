@@ -1209,6 +1209,104 @@ class RouterOSService:
             'uptime_seconds': log.uptime_seconds
         } for log in logs]
 
+    # --- Bulk Action Service Methods ---
+    def bulk_delete_hotspot_users(self, usernames: list[str]) -> tuple[int, int, list[str]]:
+        """Deletes a list of hotspot users by their usernames."""
+        api = get_mikrotik_api()
+        if api is None:
+            logger.error("Bulk delete: Mikrotik API not available.")
+            return 0, len(usernames), usernames # success_count, fail_count, failed_usernames
+
+        success_count = 0
+        failed_usernames = []
+
+        # Fetch all user IDs first to minimize API calls if direct ID removal is faster
+        # However, librouteros client might not support bulk removal by a list of IDs directly.
+        # Iterative removal by username is standard.
+        all_users_details = {user['name']: user['.id'] for user in self.get_hotspot_users()}
+
+        for username in usernames:
+            user_id_to_delete = all_users_details.get(username)
+            if not user_id_to_delete:
+                logger.warning(f"Bulk delete: User '{username}' not found.")
+                failed_usernames.append(username)
+                continue
+            try:
+                api.path('ip', 'hotspot', 'user').remove(user_id_to_delete)
+                success_count += 1
+                logger.info(f"Bulk delete: Successfully deleted user '{username}'.")
+            except (TrapError, Exception) as e:
+                logger.error(f"Bulk delete: Error deleting user '{username}': {str(e)}")
+                failed_usernames.append(username)
+
+        return success_count, len(failed_usernames), failed_usernames
+
+    def bulk_set_user_disabled_status(self, usernames: list[str], disabled: bool) -> tuple[int, int, list[str]]:
+        """Enables or disables a list of hotspot users."""
+        api = get_mikrotik_api()
+        if api is None:
+            logger.error(f"Bulk set disabled status: Mikrotik API not available.")
+            return 0, len(usernames), usernames
+
+        success_count = 0
+        failed_usernames = []
+        disabled_str = 'true' if disabled else 'false'
+        action_str = "disable" if disabled else "enable"
+
+        all_users_details = {user['name']: user['.id'] for user in self.get_hotspot_users()}
+
+        for username in usernames:
+            user_id_to_update = all_users_details.get(username)
+            if not user_id_to_update:
+                logger.warning(f"Bulk {action_str}: User '{username}' not found.")
+                failed_usernames.append(username)
+                continue
+            try:
+                api.path('ip', 'hotspot', 'user').set(**{'.id': user_id_to_update, 'disabled': disabled_str})
+                success_count += 1
+                logger.info(f"Bulk {action_str}: Successfully updated user '{username}'.")
+            except (TrapError, Exception) as e:
+                logger.error(f"Bulk {action_str}: Error updating user '{username}': {str(e)}")
+                failed_usernames.append(username)
+
+        return success_count, len(failed_usernames), failed_usernames
+
+    def bulk_change_user_profile(self, usernames: list[str], new_profile: str) -> tuple[int, int, list[str]]:
+        """Changes the profile for a list of hotspot users."""
+        api = get_mikrotik_api()
+        if api is None:
+            logger.error("Bulk change profile: Mikrotik API not available.")
+            return 0, len(usernames), usernames
+
+        # Validate if profile exists (optional, but good practice)
+        available_profiles = [p['name'] for p in self.get_user_profiles()]
+        if new_profile not in available_profiles:
+            logger.error(f"Bulk change profile: Target profile '{new_profile}' does not exist.")
+            # Treat this as a global failure for this operation, or fail all users.
+            # For now, let's assume the frontend validates this, or we fail all.
+            return 0, len(usernames), usernames
+
+        success_count = 0
+        failed_usernames = []
+
+        all_users_details = {user['name']: user['.id'] for user in self.get_hotspot_users()}
+
+        for username in usernames:
+            user_id_to_update = all_users_details.get(username)
+            if not user_id_to_update:
+                logger.warning(f"Bulk change profile: User '{username}' not found.")
+                failed_usernames.append(username)
+                continue
+            try:
+                api.path('ip', 'hotspot', 'user').set(**{'.id': user_id_to_update, 'profile': new_profile})
+                success_count += 1
+                logger.info(f"Bulk change profile: Successfully changed profile for user '{username}' to '{new_profile}'.")
+            except (TrapError, Exception) as e:
+                logger.error(f"Bulk change profile: Error updating user '{username}': {str(e)}")
+                failed_usernames.append(username)
+
+        return success_count, len(failed_usernames), failed_usernames
+
 
 router_os_service = RouterOSService()
 
@@ -1418,7 +1516,9 @@ def get_dashboard_stats():
 @login_required
 def get_users():
     users = router_os_service.get_hotspot_users()
-    return jsonify({'users': users})
+    # Also include profiles in this response for convenience, as they are often needed together
+    profiles = router_os_service.get_user_profiles()
+    return jsonify({'users': users, 'profiles': profiles})
 
 @app.route('/api/users', methods=['POST'])
 @login_required
@@ -1735,6 +1835,87 @@ def get_user_activity_history_route(username):
     except Exception as e:
         logger.error(f"API: Error fetching user activity history for {username}: {e}", exc_info=True)
         return jsonify({'success': False, 'message': _('A server error occurred while fetching user activity history.')}), 500
+
+# --- Bulk Action API Endpoints ---
+@app.route('/api/users/bulk-delete', methods=['POST'])
+@login_required
+def bulk_delete_users_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk deletion.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_delete_hotspot_users(usernames)
+
+    if fail_count == 0:
+        message = _('Successfully deleted {count} users.').format(count=success_count)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk deletion. Succeeded: {success_count}, Failed: {fail_count}. Users not deleted: {users}').format(
+            success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
+
+@app.route('/api/users/bulk-disable', methods=['POST'])
+@login_required
+def bulk_disable_users_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk disable.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_set_user_disabled_status(usernames, disabled=True)
+
+    if fail_count == 0:
+        message = _('Successfully disabled {count} users.').format(count=success_count)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk disable. Succeeded: {success_count}, Failed: {fail_count}. Users not disabled: {users}').format(
+            success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
+
+@app.route('/api/users/bulk-enable', methods=['POST'])
+@login_required
+def bulk_enable_users_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk enable.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_set_user_disabled_status(usernames, disabled=False)
+
+    if fail_count == 0:
+        message = _('Successfully enabled {count} users.').format(count=success_count)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk enable. Succeeded: {success_count}, Failed: {fail_count}. Users not enabled: {users}').format(
+            success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
+
+@app.route('/api/users/bulk-change-profile', methods=['POST'])
+@login_required
+def bulk_change_profile_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    new_profile = data.get('profile')
+
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk profile change.')}), 400
+    if not new_profile:
+        return jsonify({'success': False, 'message': _('No new profile provided for bulk profile change.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_change_user_profile(usernames, new_profile)
+
+    if fail_count == 0:
+        message = _('Successfully changed profile for {count} users to "{profile}".').format(count=success_count, profile=new_profile)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk profile change to "{profile}". Succeeded: {success_count}, Failed: {fail_count}. Users not updated: {users}').format(
+            profile=new_profile, success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
 
 
 @app.route('/api/translations')

@@ -392,6 +392,47 @@ async function loadAnalyticsData() {
 
 
 // --- Init & Navigation ---
+
+// --- Bulk Action Helper Functions ---
+function getSelectedUsernames() {
+    const selectedUsernames = [];
+    document.querySelectorAll('#usersTable tbody .user-select-checkbox:checked').forEach(checkbox => {
+        selectedUsernames.push(checkbox.dataset.username);
+    });
+    return selectedUsernames;
+}
+
+function handleSelectAllUsersChange(event) {
+    const checkboxes = document.querySelectorAll('#usersTable tbody .user-select-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = event.target.checked;
+    });
+    updateBulkActionsButtonState();
+}
+
+function updateBulkActionsButtonState() {
+    const selectedUsernames = getSelectedUsernames();
+    const bulkActionsButton = document.getElementById('bulkActionsButton');
+    if (bulkActionsButton) {
+        bulkActionsButton.disabled = selectedUsernames.length === 0;
+    }
+
+    const selectAllCheckbox = document.getElementById('selectAllUsersCheckbox');
+    if (selectAllCheckbox) {
+        const allVisibleCheckboxes = document.querySelectorAll('#usersTable tbody .user-select-checkbox');
+        if (allVisibleCheckboxes.length > 0 && selectedUsernames.length < allVisibleCheckboxes.length && selectedUsernames.length > 0) {
+            selectAllCheckbox.indeterminate = true;
+            selectAllCheckbox.checked = false;
+        } else if (allVisibleCheckboxes.length > 0 && selectedUsernames.length === allVisibleCheckboxes.length) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = true;
+        } else {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = false;
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', e => {
