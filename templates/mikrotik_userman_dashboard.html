@@ -8,6 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
+        /* --- CSS Variables --- */
         :root {
             /* Core Palette (mostly unchanged by theme switching) */
             --primary-color: #2A7ABF; /* Updated: Bright Blue */
@@ -35,29 +36,42 @@
             --theme-text-secondary: var(--secondary-color-static);
             --theme-text-nav-link: #495057;
             --theme-text-nav-link-active: #ffffff;
-            --theme-text-on-primary-btn: var(--dark-color-static);
-            --theme-text-on-colored-bg: #ffffff;
+            --theme-text-on-primary-btn: var(--dark-color-static); /* Text color on primary buttons (light mode) */
+            --theme-text-on-primary-btn-dark: #ffffff; /* Text color on primary buttons (dark mode) */
+            --theme-text-on-colored-bg: #ffffff; /* General text color for dark backgrounds (e.g., success/danger buttons) */
+
             --theme-border-light: #dee2e6; 
+            --theme-border-medium: #ced4da; /* New: For input borders, etc. */
             --theme-border-panel: #bdc3c7; 
             --theme-border-table: #ecf0f1; 
+
             --theme-box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
+            --theme-box-shadow-hover: 0 0.4rem 1rem rgba(0, 0, 0, 0.12); /* For hover effects */
+            --theme-box-shadow-active: inset 0 1px 2px rgba(0,0,0,0.15); /* For active button press */
+
             --theme-stat-card-icon-color: var(--primary-color);
-            --theme-modal-header-border: #dee2e6;
-            --theme-modal-footer-border: #dee2e6;
+            --theme-modal-header-border: var(--theme-border-light);
+            --theme-modal-footer-border: var(--theme-border-light);
+
             --theme-alert-success-bg: #d1e7dd;
             --theme-alert-success-text: var(--dark-color-static); 
             --theme-alert-success-border: #badbcc;
             --theme-alert-danger-bg: #f8d7da;
             --theme-alert-danger-text: var(--dark-color-static); 
             --theme-alert-danger-border: #f5c2c7;
+
+            --theme-disabled-bg: #e9ecef;
+            --theme-disabled-text: #6c757d;
+            --theme-disabled-border: #ced4da;
+
             --theme-empty-state-icon-color: var(--primary-color);
             --theme-empty-state-icon-opacity: 0.5;
-            --theme-empty-state-td-bg: #fff; /* Table cell background for empty state in light mode */
-            --theme-empty-state-row-hover-bg: #fff; /* Prevent hover on empty state row in light mode */
+            --theme-empty-state-td-bg: #fff;
+            --theme-empty-state-row-hover-bg: #fff;
             --theme-sidebar-footer-text-color: var(--secondary-color-static);
             --theme-sidebar-footer-strong-text-color: var(--dark-color-static);
             --theme-sidebar-footer-border-color: var(--theme-border-light);
-            --theme-chart-empty-state-bg: rgba(255,255,255,0.9); /* Light overlay for empty chart in light mode */
+            --theme-chart-empty-state-bg: rgba(255,255,255,0.9);
         }
 
         /* Dark Theme Overrides */
@@ -71,11 +85,14 @@
             --theme-text-primary: #ecf0f1;
             --theme-text-secondary: #bdc3c7;
             --theme-text-nav-link: #e0e0e0;
-            --theme-text-on-primary-btn: #ffffff; 
+            /* --theme-text-on-primary-btn is already #ffffff in dark mode via its own variable */
             --theme-border-light: #4a657f;
+            --theme-border-medium: #526d82; /* Darker input borders */
             --theme-border-panel: #526d82;
             --theme-border-table: #4a657f;
             --theme-box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.25);
+            --theme-box-shadow-hover: 0 0.4rem 1rem rgba(0, 0, 0, 0.3);
+            --theme-box-shadow-active: inset 0 1px 2px rgba(0,0,0,0.4);
             --theme-modal-header-border: var(--theme-border-light);
             --theme-modal-footer-border: var(--theme-border-light);
             --theme-alert-success-bg: #27ae60; 
@@ -84,16 +101,20 @@
             --theme-alert-danger-bg: #c0392b; 
             --theme-alert-danger-text: #ffffff;
             --theme-alert-danger-border: #e74c3c;
+            --theme-disabled-bg: #3b5166;
+            --theme-disabled-text: #7f8c8d;
+            --theme-disabled-border: #4a657f;
             --theme-empty-state-icon-color: var(--primary-color-lightest);
             --theme-empty-state-icon-opacity: 0.7;
-            --theme-empty-state-td-bg: var(--theme-bg-panel); /* Match panel bg for empty state in dark mode */
-            --theme-empty-state-row-hover-bg: var(--theme-bg-panel); /* Prevent hover on empty state row in dark mode */
+            --theme-empty-state-td-bg: var(--theme-bg-panel);
+            --theme-empty-state-row-hover-bg: var(--theme-bg-panel);
             --theme-sidebar-footer-text-color: var(--theme-text-secondary);
             --theme-sidebar-footer-strong-text-color: var(--theme-text-primary);
             --theme-sidebar-footer-border-color: var(--theme-border-light);
-            --theme-chart-empty-state-bg: rgba(44, 62, 80, 0.9); /* Darker overlay for empty chart in dark mode */
+            --theme-chart-empty-state-bg: rgba(44, 62, 80, 0.9);
         }
 
+        /* --- Base Styles --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: var(--font-family);
@@ -227,7 +248,7 @@
              transition: color 0.3s ease;
         }
 
-
+        /* --- Layout Styles --- */
         .main-content {
             flex-grow: 1;
             padding: 2rem;
@@ -255,6 +276,8 @@
         .tab-content.active { display: block; animation: fadeIn 0.3s ease-in-out; } 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
+        /* --- Component Styles --- */
+        /* Dashboard Grid & Stat Cards */
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; } 
         .stat-card { 
             background: var(--theme-bg-panel); padding: 1.5rem; border-radius: var(--border-radius); 
@@ -304,97 +327,164 @@
             transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s ease, color 0.3s ease;
             background-color: var(--theme-bg-input); 
             color: var(--theme-text-primary);
+            border: 1px solid var(--theme-border-medium); /* Standardized border */
         }
         .form-group select {
-            -webkit-appearance: none;
+            -webkit-appearance: none; /* Remove default appearance */
             -moz-appearance: none;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%232c3e50' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e"); /* Dark arrow for light mode */
+            /* Custom arrow */
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='var(--theme-text-secondary)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
             background-repeat: no-repeat;
             background-position: right 0.75rem center;
-            background-size: 0.8em 0.8em;
-            padding-right: 2.5rem; /* Ensure space for arrow */
+            background-size: 1em 1em; /* Adjusted size */
+            padding-right: 2.5rem;
+        }
+        body.dark-mode .form-group select {
+            /* Arrow color for dark mode can be controlled by changing the stroke in SVG if needed, or use a different SVG */
+            /* For simplicity, if --theme-text-secondary adapts, this might be enough. Otherwise, a specific dark mode arrow SVG. */
+             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='var(--theme-text-secondary)' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
         }
         .form-group input::placeholder, .form-group textarea::placeholder { 
             color: var(--theme-text-secondary);
-            opacity: 0.8;
+            opacity: 0.7; /* Slightly more subtle */
         }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus { 
-            outline: none; border-color: var(--primary-color); 
-            box-shadow: 0 0 0 0.2rem rgba(42, 122, 191, .25); /* Updated focus shadow for Bright Blue */
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem var(--primary-color-lightest); /* Use variable for focus shadow */
         }
-        body.dark-mode .form-group select {
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23bdc3c7' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e"); /* Light arrow for dark mode */
-            /* background-repeat, position, size are inherited or can be re-specified if different */
+        .form-group input:disabled, .form-group select:disabled, .form-group textarea:disabled {
+            background-color: var(--theme-disabled-bg);
+            color: var(--theme-disabled-text);
+            border-color: var(--theme-disabled-border);
+            cursor: not-allowed;
+            opacity: 0.75;
         }
 
+        /* Buttons */
         .btn {
             display: inline-flex; align-items: center; gap: 0.5rem;
             padding: 0.75rem 1.5rem; font-size: 0.95rem; font-weight: 500; 
             border: 1px solid transparent; border-radius: var(--border-radius);
             cursor: pointer; text-decoration: none; 
             transition: all 0.2s ease-in-out, background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
-            box-shadow: var(--theme-box-shadow); 
+            box-shadow: var(--theme-box-shadow);
+            line-height: 1.5; /* Ensure consistent line height */
+            text-align: center; /* Center text by default */
+            vertical-align: middle; /* Align vertically for icon + text */
         }
         .btn:hover { 
             transform: translateY(-1px); 
-            box-shadow: 0 0.3rem 0.8rem rgba(0,0,0,0.15); 
+            box-shadow: var(--theme-box-shadow-hover);
         }
-        body.dark-mode .btn:hover {
-            box-shadow: 0 0.3rem 0.8rem rgba(0,0,0,0.35);
-        }
-        
         .btn:active {
             transform: scale(0.98) translateY(0px); 
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.15); 
+            box-shadow: var(--theme-box-shadow-active);
         }
-        body.dark-mode .btn:active {
-             box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
-        }
-
         .btn:focus-visible { 
-            outline: 2px solid var(--primary-color-darker);
+            outline: 2px solid var(--primary-color-darker); /* Fallback for non-webkit */
             outline-offset: 2px;
-            box-shadow: 0 0 0 0.2rem rgba(42, 122, 191, .25); /* Updated focus shadow for Bright Blue */
+            box-shadow: 0 0 0 0.2rem var(--primary-color-lightest); /* Focus ring */
+        }
+        .btn:disabled, .btn.disabled {
+            background-color: var(--theme-disabled-bg);
+            border-color: var(--theme-disabled-border);
+            color: var(--theme-disabled-text);
+            cursor: not-allowed;
+            opacity: 0.65;
+            transform: none;
+            box-shadow: none;
+        }
+        .btn i { /* For icons inside buttons */
+            margin-right: 0.4em; /* Space between icon and text */
+            font-size: 0.9em; /* Slightly smaller icon relative to text */
         }
 
-        .btn-primary { background-color: var(--primary-color); color: var(--theme-text-on-primary-btn); border-color: var(--primary-color-darker); } 
-        .btn-primary:hover { background-color: var(--primary-color-darker); color: #fff; border-color: var(--primary-color-darker); }
-        body.dark-mode .btn-primary:active { background-color: var(--primary-color); color: #fff;}
-        body:not(.dark-mode) .btn-primary:active { background-color: var(--primary-color); color: var(--dark-color-static);}
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--theme-text-on-primary-btn);
+            border-color: var(--primary-color);
+        }
+        .btn-primary:hover {
+            background-color: var(--primary-color-darker);
+            border-color: var(--primary-color-darker);
+            color: var(--theme-text-on-primary-btn-dark); /* Ensure contrast on darker bg */
+        }
+        body.dark-mode .btn-primary {
+             color: var(--theme-text-on-primary-btn-dark);
+        }
         
+        .btn-secondary {
+            background-color: var(--secondary-color-static);
+            color: var(--theme-text-on-colored-bg);
+            border-color: var(--secondary-color-static);
+        }
+        .btn-secondary:hover {
+            background-color: #5a6268; /* Darken secondary */
+            border-color: #545b62;
+            color: var(--theme-text-on-colored-bg);
+        }
+
         .btn-danger { background-color: var(--danger-color); color: var(--theme-text-on-colored-bg); border-color: var(--danger-color); }
-        .btn-danger:hover { background-color: #c0392b; border-color: #c0392b; color: #fff; } 
+        .btn-danger:hover { background-color: #c0392b; border-color: #ae3426; color: var(--theme-text-on-colored-bg); }
         
         .btn-success { background-color: var(--success-color); color: var(--theme-text-on-colored-bg); border-color: var(--success-color); }
-        .btn-success:hover { background-color: #27ae60; border-color: #27ae60; color: #fff; } 
+        .btn-success:hover { background-color: #27ae60; border-color: #239954; color: var(--theme-text-on-colored-bg); }
         
-        .btn-info { background-color: var(--info-color); color: #fff; border-color: var(--info-color); }
-        .btn-info:hover { background-color: #2980b9; border-color: #2980b9; color: #fff; }
+        .btn-info { background-color: var(--info-color); color: var(--theme-text-on-colored-bg); border-color: var(--info-color); }
+        .btn-info:hover { background-color: #2980b9; border-color: #2471a3; color: var(--theme-text-on-colored-bg); }
+
+        .btn-outline-secondary {
+            background-color: transparent;
+            color: var(--theme-text-secondary);
+            border-color: var(--theme-border-medium);
+        }
+        .btn-outline-secondary:hover {
+            background-color: var(--theme-bg-table-row-hover);
+            color: var(--theme-text-primary);
+            border-color: var(--theme-border-medium);
+        }
+        .btn-outline-secondary:disabled, .btn-outline-secondary.disabled {
+            color: var(--theme-text-secondary);
+            background-color: transparent;
+             opacity: 0.5;
+        }
+
 
         .btn-danger, .btn-success, #connectionStatus.connected, #connectionStatus.disconnected, .status-badge {
              font-weight: 500; 
         }
         .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.875rem; } 
         
-        .table-container { 
-            overflow-x: auto; 
-            border: 1px solid var(--theme-border-panel); 
-            border-radius: var(--border-radius); 
-            background-color: var(--theme-bg-panel); 
-            transition: background-color 0.3s ease, border-color 0.3s ease;
+        /* Tables */
+        /* Removed .table-container as individual tables/wrappers will handle their own borders/bg if needed */
+        /* div[style*="overflow-y: auto"] { /* For the scrollable user table container */
+        /*    border: 1px solid var(--theme-border-panel);
+        /*    border-radius: var(--border-radius);
+        /* } */
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background-color: var(--theme-bg-panel); }
+        th, td {
+            padding: 0.9rem 1rem; text-align: left;
+            border-bottom: 1px solid var(--theme-border-table);
+            vertical-align: middle;
+            transition: border-color 0.3s ease;
         }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; } 
-        th, td { padding: 0.9rem 1rem; text-align: left; border-bottom: 1px solid var(--theme-border-table); vertical-align: middle; } 
-        th { background-color: var(--theme-bg-table-header); font-weight: 600; color: var(--theme-text-primary); transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; } 
+        th {
+            background-color: var(--theme-bg-table-header);
+            font-weight: 600; color: var(--theme-text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
         tbody tr { transition: background-color 0.15s ease; }
         tbody tr:hover { background-color: var(--theme-bg-table-row-hover); } 
         
         .status-badge { padding: 0.3em 0.6em; font-size: 80%; line-height: 1; text-align: center; white-space: nowrap; vertical-align: baseline; border-radius: var(--border-radius); }
         .status-active { color: var(--theme-text-on-colored-bg); background-color: var(--success-color); } 
-        .status-disabled { color: var(--theme-text-primary); background-color: var(--secondary-color-static); } 
-        body.dark-mode .status-disabled { color: var(--theme-text-primary); background-color: #566573; } 
+        .status-disabled { color: var(--theme-text-primary); background-color: var(--theme-disabled-bg); border: 1px solid var(--theme-disabled-border); }
+        body.dark-mode .status-disabled { color: var(--theme-text-primary); background-color: #566573; border-color: #4a657f; }
 
+        /* Modals */
         .modal {
             display: none; position: fixed; z-index: 1050; top: 0; left: 0; width: 100%; height: 100%;
             overflow: hidden; background-color: rgba(0,0,0,0.6); 
@@ -410,16 +500,35 @@
             border: 1px solid var(--theme-border-panel);
             transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
         }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--theme-modal-header-border); transition: border-color 0.3s ease; } 
-        .modal-header .modal-title { color: var(--theme-text-primary); }
-        .modal-body { padding: 1.5rem; color: var(--theme-text-primary); }
-        .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.5rem; border-top: 1px solid var(--theme-modal-footer-border); transition: border-color 0.3s ease; } 
-        .close-button { 
-            background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--theme-text-secondary);
-            transition: color 0.2s ease-in-out;
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--theme-modal-header-border);
+            transition: border-color 0.3s ease;
         }
-        .close-button:hover, .close-button:focus { color: var(--theme-text-primary); }
+        .modal-header .modal-title { font-size: 1.25rem; font-weight: 600; color: var(--theme-text-primary); }
+        .modal-body { padding: 1.5rem; color: var(--theme-text-primary); line-height: 1.6; }
+        .modal-footer {
+            display: flex; justify-content: flex-end; gap: 0.75rem; /* Increased gap slightly */
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--theme-modal-footer-border);
+            transition: border-color 0.3s ease;
+            background-color: var(--theme-bg-table-header); /* Subtle background for footer */
+        }
+        .close-button { 
+            background: none; border: none; font-size: 1.75rem; /* Slightly larger */
+            line-height: 1; /* Ensure tight fit */
+            padding: 0.25rem 0.5rem; /* Add some padding for easier clicking */
+            cursor: pointer; color: var(--theme-text-secondary);
+            transition: color 0.2s ease-in-out, transform 0.15s ease;
+        }
+        .close-button:hover, .close-button:focus {
+            color: var(--theme-text-primary);
+            transform: scale(1.1); /* Slight grow on hover */
+            outline: none; /* Remove default focus if custom is not needed here */
+        }
         
+        /* Utility & Feedback Styles */
         .loading-spinner {
             display: inline-block; width: 1rem; height: 1rem; vertical-align: text-bottom;
             border: .2em solid currentColor; border-right-color: transparent;
@@ -501,7 +610,8 @@
              transition: background-color 0.3s ease;
         }
 
-        .analytics-grid {
+        /* Specific Chart Styling (can be expanded) */
+        .analytics-grid { /* Also used by systemResourceChartsContainer */
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
@@ -509,13 +619,14 @@
         }
         .chart-container {
             position: relative;
-            height: 350px;
+            height: 350px; /* Default height, can be overridden for specific charts */
             width: 100%;
         }
 
+        /* --- Responsive Media Queries --- */
         @media (max-width: 992px) {
             .analytics-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr; /* Stack analytics charts sooner */
             }
         }
         @media (max-width: 768px) {
@@ -540,8 +651,8 @@
 
 
             .main-content { padding: 1rem; }
-            .page-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; /* Reduced gap */ }
-            .page-header h1 { font-size: 1.5rem; } /* Smaller page titles */
+            .page-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+            .page-header h1 { font-size: 1.5rem; }
             .page-header span { font-size: 0.8em; }
 
             .panel, .stat-card { padding: 1rem; }
@@ -550,41 +661,65 @@
             .stat-card-info p { font-size: 0.8rem; }
             .stat-card-icon { font-size: 1.8rem; margin-right: 0.8rem;}
 
-            .dashboard-grid { gap: 1rem; }
-            .form-grid { gap: 1rem; }
-            .form-group input, .form-group select, .form-group textarea { padding: 0.6rem 0.8rem; font-size: 0.9rem; }
-            .btn { padding: 0.6rem 1rem; font-size: 0.9rem; }
-            .btn-sm { padding: 0.3rem 0.6rem; font-size: 0.8rem; }
+            .dashboard-grid, .analytics-grid {
+                grid-template-columns: 1fr; /* Ensure single column for grids */
+                gap: 1rem;
+            }
+            .form-grid {
+                grid-template-columns: 1fr; /* Stack form elements in a single column */
+                gap: 1rem;
+            }
+            .form-group input, .form-group select, .form-group textarea { padding: 0.7rem 0.9rem; font-size: 0.9rem; } /* Slightly adjusted padding */
+            .btn { padding: 0.7rem 1.2rem; font-size: 0.9rem; } /* Slightly adjusted padding */
+            .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; } /* Slightly adjusted padding */
 
             /* Table refinements */
-            .table-container { font-size: 0.85rem; /* Reduce base font for table container slightly */ }
-            th, td { padding: 0.5rem 0.4rem; /* Significantly reduce padding */ font-size: 0.8rem; }
+            /* The #usersTableContainerScrollable already has overflow-y: auto; */
+            /* For horizontal scrolling on small screens for the users table: */
+            #usersTableContainerScrollable {
+                overflow-x: auto; /* Add horizontal scroll for the users table container */
+            }
+            #usersTable { /* Ensure table itself doesn't shrink too much, allow it to overflow its container */
+                min-width: 700px; /* Example: Adjust based on content. Forces horizontal scroll if container is narrower. */
+            }
+
+            th, td { padding: 0.6rem 0.5rem; font-size: 0.85rem; } /* Adjusted padding and font for tables */
             
             /* Make form buttons and modal footer buttons full width and stacked */
             #createUserForm button[type="submit"], 
             #bulkCreateUserForm button[type="submit"],
-            #configForm button, /* Both test and save */
+            #configForm .btn, /* Target all buttons in config form for stacking */
             .modal-footer .btn {
                 width: 100%;
-                margin-bottom: 0.5rem;
+                margin-bottom: 0.75rem; /* Increased margin for stacked buttons */
             }
             .modal-footer .btn:last-child { margin-bottom: 0; }
-            .modal-footer { flex-direction: column; }
-            #configForm div[style*="gap"] { flex-direction: column; } /* Stack test/save in settings */
+            .modal-footer {
+                flex-direction: column;
+                align-items: stretch; /* Make buttons take full width of footer */
+            }
+            /* Ensure button groups in config form also stack */
+            #configForm div[style*="gap"] { /* This targets the div holding Test/Save buttons */
+                 flex-direction: column;
+                 align-items: stretch;
+            }
+             #configForm div[style*="gap"] .btn {
+                 width: 100%; /* Make Test/Save buttons full width */
+             }
 
-            .modal-dialog { margin: 0.5rem auto; width: calc(100% - 1rem); }
-            .modal-header, .modal-body, .modal-footer { padding: 0.75rem; }
-            .modal-header .modal-title { font-size: 1.1rem; }
 
-            /* Specific column hiding for users table - example for 'Comment' */
-            /* This requires adding a class like 'hide-on-mobile' to th/td in JS or HTML */
-            /* For now, this is a placeholder to show how it would be done. */
-            /* .users-table-comment-col { display: none; } */
+            .modal-dialog { margin: 0.5rem; width: auto; max-width: calc(100% - 1rem); } /* Allow modal to use more screen width */
+            .modal-header, .modal-body, .modal-footer { padding: 1rem; } /* Slightly more padding in modals */
+            .modal-header .modal-title { font-size: 1.15rem; }
+
 
             /* Analytics page adjustments */
-            .analytics-grid { margin-top: 1rem; gap: 1rem; }
-            #refreshAnalyticsButton { margin-left: 0 !important; width: 100%; margin-top: 1rem; }
-            .page-header > div:first-child { /* Ensure title and subtitle stack nicely */
+            #refreshAnalyticsButton {
+                width: 100%;
+                margin-left: 0 !important; /* Override any inline styles if present */
+                margin-top: 1rem;
+            }
+            .page-header > div:first-child {
                 display: flex;
                 flex-direction: column;
                 align-items: flex-start;
@@ -649,6 +784,7 @@
                     </div>
                 </div>
             </div>
+
             <div class="panel">
                 <p>Welcome to The IT Dad's Hotspot Management System. Use the menu on the left to navigate.</p>
             </div>
@@ -675,8 +811,8 @@
                         </select>
                     </div>
                 </div>
-                <div class="table-container">
-                    <table id="usersTable">
+                <div id="usersTableContainerScrollable" style="max-height: 500px; overflow-y: auto; border: 1px solid var(--theme-border-panel); border-radius: var(--border-radius);">
+                    <table id="usersTable" style="margin-bottom: 0;">
                         <thead>
                             <tr>
                                 <th>Username</th><th>Profile</th><th>Status</th><th>Time Limit</th>

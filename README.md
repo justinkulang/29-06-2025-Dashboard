@@ -74,7 +74,48 @@ This project provides a web-based dashboard for managing Mikrotik Hotspot users,
         *   Settings are in `config.json` under the `scheduler` section:
             *   `enabled` (boolean): `true` to enable data logging, `false` to disable.
             *   `job_interval_minutes` (integer): How often (in minutes) the data logging job runs. Default is 60 minutes.
-    *   **Log File Location:** The default application log file is `mikrotik_dashboard.log`. You can change this in `config.json` under `server.log_file`.
+    *   **Log File Location:** The default application log file is `mikrotik_dashboard.log`. You can change this in `config.json` under `server.log_file`, or by setting the `MHSM_LOG_FILE` environment variable.
+
+### Environment Variable Configuration
+
+The application supports overriding settings from `config.json` using environment variables. This is particularly useful for production and containerized deployments. Environment variables take precedence over values in `config.json`.
+
+**Naming Convention:** Most environment variables are prefixed with `MHSM_`.
+
+**Supported Environment Variables:**
+
+*   **Mikrotik Connection:**
+    *   `MHSM_MIKROTIK_HOST`: Router IP address or hostname.
+    *   `MHSM_MIKROTIK_PORT`: API port number (e.g., `8728`).
+    *   `MHSM_MIKROTIK_USERNAME`: API username.
+    *   `MHSM_MIKROTIK_PASSWORD`: API password.
+    *   `MHSM_MIKROTIK_USE_SSL`: Set to `true` or `false` to enable/disable SSL for API connection.
+    *   `MHSM_MIKROTIK_HOTSPOT_LOGIN_URL`: URL for hotspot login page (for QR codes).
+*   **Application Admin:**
+    *   `MHSM_APP_ADMIN_USERNAME`: Username for the web dashboard admin.
+    *   `MHSM_APP_ADMIN_PASSWORD_HASH`: Werkzeug-generated password hash for the admin user.
+*   **Server Settings (Flask App):**
+    *   `MHSM_SERVER_HOST`: Host address for the Flask application to bind to (e.g., `0.0.0.0`).
+    *   `MHSM_SERVER_PORT`: Port for the Flask application (e.g., `5000`).
+    *   `MHSM_SERVER_DEBUG`: Set to `true` or `false` to enable/disable Flask debug mode.
+    *   `FLASK_SECRET_KEY`: **Crucial for session security.** Set this to a long, random, unique string. (This is a standard Flask variable, not MHSM prefixed).
+*   **Logging:**
+    *   `MHSM_LOG_FILE`: Path to the application log file.
+    *   `MHSM_LOG_LEVEL_CONSOLE`: Log level for console output (e.g., `INFO`, `DEBUG`, `WARNING`).
+    *   `MHSM_LOG_LEVEL_FILE`: Log level for file output.
+*   **Database (Analytics):**
+    *   `MHSM_DATABASE_URI`: SQLAlchemy database URI (e.g., `sqlite:///./data/analytics.db`).
+*   **Scheduler (Analytics Data Logging):**
+    *   `MHSM_SCHEDULER_ENABLED`: Set to `true` or `false` to enable/disable the background data logging job.
+    *   `MHSM_SCHEDULER_JOB_INTERVAL_MINUTES`: Interval in minutes for the data logging job.
+
+**Configuration Precedence:**
+
+1.  Environment Variables (highest precedence)
+2.  Values in `config.json`
+3.  Hardcoded application defaults (lowest precedence)
+
+For example, if `MHSM_MIKROTIK_HOST` is set, it will be used even if a different host is specified in `config.json`.
 
 ## Running the Application
 

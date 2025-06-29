@@ -120,9 +120,25 @@ class ConfigLoader:
         self.config_file = os.path.join(get_base_path(), config_file)
         self.config = self._load_config()
 
+    def _get_env_var(self, var_name, default=None, var_type=str):
+        """Helper to get environment variable and cast its type."""
+        value = os.environ.get(var_name)
+        if value is None:
+            return default
+        try:
+            if var_type == bool:
+                return value.lower() in ('true', '1', 'yes', 'y')
+            elif var_type == int:
+                return int(value)
+            return var_type(value)
+        except ValueError:
+            logger.warning(f"Environment variable {var_name} has invalid value '{value}' for type {var_type}. Using default.")
+            return default
+
     def _load_config(self):
-        """Load configuration from config.json or create default if not exists."""
-        default_config = {
+        """Load configuration with precedence: ENV > config.json > defaults."""
+        # 1. Hardcoded Defaults
+        config = {
             "scheduler": {
                 "enabled": True,
                 "job_interval_minutes": 60
@@ -142,9 +158,9 @@ class ConfigLoader:
                 "host": "0.0.0.0",
                 "port": 5000,
                 "debug": False,
-                "log_file": "mikrotik_dashboard.log", 
-                "log_level_console": "INFO", 
-                "log_level_file": "INFO"     
+                "log_file": "mikrotik_dashboard.log",
+                "log_level_console": "INFO",
+                "log_level_file": "INFO"
             },
             "app_admin": {
                 "username": "admin",
@@ -152,22 +168,66 @@ class ConfigLoader:
             }
         }
 
+        # 2. Override with config.json if it exists
         if os.path.exists(self.config_file):
-            with open(self.config_file, 'r') as f:
-                loaded_config = json.load(f)
-                # Deep merge with default to ensure new keys are present
-                for key in ['scheduler', 'database', 'mikrotik', 'server', 'app_admin']:
-                    if key in loaded_config and isinstance(default_config.get(key), dict) and isinstance(loaded_config.get(key), dict):
-                        default_config[key].update(loaded_config[key])
-                    elif key in loaded_config: # Handle cases where the value might not be a dict (e.g. if a user manually edits it)
-                        default_config[key] = loaded_config[key]
-                
-                return default_config
+            try:
+                with open(self.config_file, 'r') as f:
+                    file_config = json.load(f)
+                # Deep merge file_config into config
+                for section_key, section_value in file_config.items():
+                    if section_key in config and isinstance(config[section_key], dict):
+                        config[section_key].update(section_value)
+                    else:
+                        config[section_key] = section_value
+                logger.info(f"Configuration loaded from {self.config_file}")
+            except json.JSONDecodeError:
+                logger.error(f"Error decoding {self.config_file}. Using defaults and environment variables.", exc_info=True)
+            except Exception as e:
+                logger.error(f"Error loading {self.config_file}: {e}. Using defaults and environment variables.", exc_info=True)
         else:
-            # If config file doesn't exist, write the full default_config
-            with open(self.config_file, 'w') as f:
-                json.dump(default_config, f, indent=4)
-            return default_config
+            # If config file doesn't exist, write the current config (which is defaults at this point)
+            try:
+                with open(self.config_file, 'w') as f:
+                    json.dump(config, f, indent=4)
+                logger.info(f"Default configuration written to {self.config_file}")
+            except IOError:
+                logger.error(f"Could not write default configuration to {self.config_file}", exc_info=True)
+
+        # 3. Override with Environment Variables
+        # Mikrotik settings
+        config['mikrotik']['host'] = self._get_env_var('MHSM_MIKROTIK_HOST', config['mikrotik']['host'])
+        config['mikrotik']['port'] = self._get_env_var('MHSM_MIKROTIK_PORT', config['mikrotik']['port'], int)
+        config['mikrotik']['username'] = self._get_env_var('MHSM_MIKROTIK_USERNAME', config['mikrotik']['username'])
+        config['mikrotik']['password'] = self._get_env_var('MHSM_MIKROTIK_PASSWORD', config['mikrotik']['password'])
+        config['mikrotik']['use_ssl'] = self._get_env_var('MHSM_MIKROTIK_USE_SSL', config['mikrotik']['use_ssl'], bool)
+        config['mikrotik']['hotspot_login_url'] = self._get_env_var('MHSM_MIKROTIK_HOTSPOT_LOGIN_URL', config['mikrotik']['hotspot_login_url'])
+
+        # App Admin settings
+        config['app_admin']['username'] = self._get_env_var('MHSM_APP_ADMIN_USERNAME', config['app_admin']['username'])
+        config['app_admin']['password_hash'] = self._get_env_var('MHSM_APP_ADMIN_PASSWORD_HASH', config['app_admin']['password_hash'])
+
+        # Server settings
+        config['server']['host'] = self._get_env_var('MHSM_SERVER_HOST', config['server']['host'])
+        config['server']['port'] = self._get_env_var('MHSM_SERVER_PORT', config['server']['port'], int)
+        config['server']['debug'] = self._get_env_var('MHSM_SERVER_DEBUG', config['server']['debug'], bool)
+        config['server']['log_file'] = self._get_env_var('MHSM_LOG_FILE', config['server']['log_file'])
+        config['server']['log_level_console'] = self._get_env_var('MHSM_LOG_LEVEL_CONSOLE', config['server']['log_level_console']).upper()
+        config['server']['log_level_file'] = self._get_env_var('MHSM_LOG_LEVEL_FILE', config['server']['log_level_file']).upper()
+
+        # Database settings
+        config['database']['uri'] = self._get_env_var('MHSM_DATABASE_URI', config['database']['uri'])
+
+        # Scheduler settings
+        config['scheduler']['enabled'] = self._get_env_var('MHSM_SCHEDULER_ENABLED', config['scheduler']['enabled'], bool)
+        config['scheduler']['job_interval_minutes'] = self._get_env_var('MHSM_SCHEDULER_JOB_INTERVAL_MINUTES', config['scheduler']['job_interval_minutes'], int)
+
+        # FLASK_SECRET_KEY is handled separately in app setup, but if we wanted to integrate:
+        # config['FLASK_SECRET_KEY'] = self._get_env_var('FLASK_SECRET_KEY', app.config.get('SECRET_KEY'))
+        # And then app.config['SECRET_KEY'] = config_loader.get_config()['FLASK_SECRET_KEY']
+        # For now, keeping FLASK_SECRET_KEY handling as is in the main app setup.
+
+        logger.info("Configuration loaded. Debug mode: %s", config['server']['debug'])
+        return config
 
     def get_config(self):
         return self.config
@@ -1209,6 +1269,104 @@ class RouterOSService:
             'uptime_seconds': log.uptime_seconds
         } for log in logs]
 
+    # --- Bulk Action Service Methods ---
+    def bulk_delete_hotspot_users(self, usernames: list[str]) -> tuple[int, int, list[str]]:
+        """Deletes a list of hotspot users by their usernames."""
+        api = get_mikrotik_api()
+        if api is None:
+            logger.error("Bulk delete: Mikrotik API not available.")
+            return 0, len(usernames), usernames # success_count, fail_count, failed_usernames
+
+        success_count = 0
+        failed_usernames = []
+
+        # Fetch all user IDs first to minimize API calls if direct ID removal is faster
+        # However, librouteros client might not support bulk removal by a list of IDs directly.
+        # Iterative removal by username is standard.
+        all_users_details = {user['name']: user['.id'] for user in self.get_hotspot_users()}
+
+        for username in usernames:
+            user_id_to_delete = all_users_details.get(username)
+            if not user_id_to_delete:
+                logger.warning(f"Bulk delete: User '{username}' not found.")
+                failed_usernames.append(username)
+                continue
+            try:
+                api.path('ip', 'hotspot', 'user').remove(user_id_to_delete)
+                success_count += 1
+                logger.info(f"Bulk delete: Successfully deleted user '{username}'.")
+            except (TrapError, Exception) as e:
+                logger.error(f"Bulk delete: Error deleting user '{username}': {str(e)}")
+                failed_usernames.append(username)
+
+        return success_count, len(failed_usernames), failed_usernames
+
+    def bulk_set_user_disabled_status(self, usernames: list[str], disabled: bool) -> tuple[int, int, list[str]]:
+        """Enables or disables a list of hotspot users."""
+        api = get_mikrotik_api()
+        if api is None:
+            logger.error(f"Bulk set disabled status: Mikrotik API not available.")
+            return 0, len(usernames), usernames
+
+        success_count = 0
+        failed_usernames = []
+        disabled_str = 'true' if disabled else 'false'
+        action_str = "disable" if disabled else "enable"
+
+        all_users_details = {user['name']: user['.id'] for user in self.get_hotspot_users()}
+
+        for username in usernames:
+            user_id_to_update = all_users_details.get(username)
+            if not user_id_to_update:
+                logger.warning(f"Bulk {action_str}: User '{username}' not found.")
+                failed_usernames.append(username)
+                continue
+            try:
+                api.path('ip', 'hotspot', 'user').set(**{'.id': user_id_to_update, 'disabled': disabled_str})
+                success_count += 1
+                logger.info(f"Bulk {action_str}: Successfully updated user '{username}'.")
+            except (TrapError, Exception) as e:
+                logger.error(f"Bulk {action_str}: Error updating user '{username}': {str(e)}")
+                failed_usernames.append(username)
+
+        return success_count, len(failed_usernames), failed_usernames
+
+    def bulk_change_user_profile(self, usernames: list[str], new_profile: str) -> tuple[int, int, list[str]]:
+        """Changes the profile for a list of hotspot users."""
+        api = get_mikrotik_api()
+        if api is None:
+            logger.error("Bulk change profile: Mikrotik API not available.")
+            return 0, len(usernames), usernames
+
+        # Validate if profile exists (optional, but good practice)
+        available_profiles = [p['name'] for p in self.get_user_profiles()]
+        if new_profile not in available_profiles:
+            logger.error(f"Bulk change profile: Target profile '{new_profile}' does not exist.")
+            # Treat this as a global failure for this operation, or fail all users.
+            # For now, let's assume the frontend validates this, or we fail all.
+            return 0, len(usernames), usernames
+
+        success_count = 0
+        failed_usernames = []
+
+        all_users_details = {user['name']: user['.id'] for user in self.get_hotspot_users()}
+
+        for username in usernames:
+            user_id_to_update = all_users_details.get(username)
+            if not user_id_to_update:
+                logger.warning(f"Bulk change profile: User '{username}' not found.")
+                failed_usernames.append(username)
+                continue
+            try:
+                api.path('ip', 'hotspot', 'user').set(**{'.id': user_id_to_update, 'profile': new_profile})
+                success_count += 1
+                logger.info(f"Bulk change profile: Successfully changed profile for user '{username}' to '{new_profile}'.")
+            except (TrapError, Exception) as e:
+                logger.error(f"Bulk change profile: Error updating user '{username}': {str(e)}")
+                failed_usernames.append(username)
+
+        return success_count, len(failed_usernames), failed_usernames
+
 
 router_os_service = RouterOSService()
 
@@ -1418,7 +1576,9 @@ def get_dashboard_stats():
 @login_required
 def get_users():
     users = router_os_service.get_hotspot_users()
-    return jsonify({'users': users})
+    # Also include profiles in this response for convenience, as they are often needed together
+    profiles = router_os_service.get_user_profiles()
+    return jsonify({'users': users, 'profiles': profiles})
 
 @app.route('/api/users', methods=['POST'])
 @login_required
@@ -1735,6 +1895,87 @@ def get_user_activity_history_route(username):
     except Exception as e:
         logger.error(f"API: Error fetching user activity history for {username}: {e}", exc_info=True)
         return jsonify({'success': False, 'message': _('A server error occurred while fetching user activity history.')}), 500
+
+# --- Bulk Action API Endpoints ---
+@app.route('/api/users/bulk-delete', methods=['POST'])
+@login_required
+def bulk_delete_users_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk deletion.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_delete_hotspot_users(usernames)
+
+    if fail_count == 0:
+        message = _('Successfully deleted {count} users.').format(count=success_count)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk deletion. Succeeded: {success_count}, Failed: {fail_count}. Users not deleted: {users}').format(
+            success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
+
+@app.route('/api/users/bulk-disable', methods=['POST'])
+@login_required
+def bulk_disable_users_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk disable.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_set_user_disabled_status(usernames, disabled=True)
+
+    if fail_count == 0:
+        message = _('Successfully disabled {count} users.').format(count=success_count)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk disable. Succeeded: {success_count}, Failed: {fail_count}. Users not disabled: {users}').format(
+            success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
+
+@app.route('/api/users/bulk-enable', methods=['POST'])
+@login_required
+def bulk_enable_users_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk enable.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_set_user_disabled_status(usernames, disabled=False)
+
+    if fail_count == 0:
+        message = _('Successfully enabled {count} users.').format(count=success_count)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk enable. Succeeded: {success_count}, Failed: {fail_count}. Users not enabled: {users}').format(
+            success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
+
+@app.route('/api/users/bulk-change-profile', methods=['POST'])
+@login_required
+def bulk_change_profile_route():
+    data = request.json
+    usernames = data.get('usernames', [])
+    new_profile = data.get('profile')
+
+    if not usernames:
+        return jsonify({'success': False, 'message': _('No usernames provided for bulk profile change.')}), 400
+    if not new_profile:
+        return jsonify({'success': False, 'message': _('No new profile provided for bulk profile change.')}), 400
+
+    success_count, fail_count, failed_usernames = router_os_service.bulk_change_user_profile(usernames, new_profile)
+
+    if fail_count == 0:
+        message = _('Successfully changed profile for {count} users to "{profile}".').format(count=success_count, profile=new_profile)
+        return jsonify({'success': True, 'message': message, 'success_count': success_count, 'fail_count': fail_count})
+    else:
+        message = _('Completed bulk profile change to "{profile}". Succeeded: {success_count}, Failed: {fail_count}. Users not updated: {users}').format(
+            profile=new_profile, success_count=success_count, fail_count=fail_count, users=', '.join(failed_usernames)
+        )
+        return jsonify({'success': False, 'message': message, 'success_count': success_count, 'fail_count': fail_count, 'failed_usernames': failed_usernames})
 
 
 @app.route('/api/translations')
